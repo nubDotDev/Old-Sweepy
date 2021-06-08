@@ -1,0 +1,16 @@
+{
+  "name": "Old Sweepy",
+  "description": "Minesweeper AI",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "icons": { "128": "Sweepy.png" },
+  "content_scripts": [
+    {
+      "matches": ["*://*.minesweeperonline.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_title": "Old Sweepy"
+  }
+}

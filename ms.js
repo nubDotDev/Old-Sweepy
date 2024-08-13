@@ -819,11 +819,17 @@ class DisjointSet {
     }
 }
 
+const div = document.createElement("div");
+
 class Website {
     constructor() {
         this.game = new Game();
-        this.update();
         this.solver = new Solver(this.game);
+        this.load().then(() => this.update());
+    }
+
+    async load() {
+        return Promise.resolve();
     }
 
     executeSolution(solution) {
@@ -835,7 +841,7 @@ class Website {
         solution.linAlg?.clears.forEach((i) => this.clear(i));
         solution.brute?.mines.forEach((i) => this.flag(i));
         solution.brute?.clears.forEach((i) => this.clear(i));
-        if ("guess" in solution) {
+        if ("guess" in solution && solution.guess !== -1) {
             this.clear(solution.guess);
         }
         this.update();
@@ -853,87 +859,45 @@ class Website {
     }
 
     update() {
-        throw new Error("Not implemented");
-    }
+        this.game.setDims(...this.getDims());
 
-    clear() {
-        throw new Error("Not implemented");
-    }
-
-    flag() {
-        throw new Error("Not implemented");
-    }
-
-    getState() {
-        throw new Error("Not implemented");
-    }
-
-    showProbabilities() {
-        throw new Error("Not implemented");
-    }
-
-    hideProbabilities() {
-        throw new Error("Not implemented");
-    }
-}
-
-class MinesweeperOnline extends Website {
-    update() {
-        let width = 0;
-        for (let i = 1; ; i++) {
-            const square = document.getElementById("1_" + i);
-            if (!square || square.style.display === "none") {
-                break;
-            }
-            width++;
-        }
-        let height = 0;
-        for (let i = 1; ; i++) {
-            const square = document.getElementById(i + "_1");
-            if (!square || square.style.display === "none") {
-                break;
-            }
-            height++;
-        }
-        this.game.setDims(width, height);
-        const squares = document.getElementsByClassName("square");
-        for (let square of squares) {
-            const [y, x] = square.id.split("_").map((i) => parseInt(i));
-            if (
-                x !== 0 &&
-                y !== 0 &&
-                x <= this.game.width &&
-                y <= this.game.height
-            ) {
-                const val = this.classToValue(square.classList[1]);
-                this.game.set(this.game.xytoi(x - 1, y - 1), val);
+        for (let x = 0; x < this.game.width; x++) {
+            for (let y = 0; y < this.game.height; y++) {
+                this.game.set(
+                    this.game.xytoi(x, y),
+                    this.getValue(this.getCell(x, y))
+                );
             }
         }
 
-        this.game.mines =
-            100 *
-                parseInt(
-                    document.getElementById("mines_hundreds").className[4]
-                ) +
-            10 * parseInt(document.getElementById("mines_tens").className[4]) +
-            parseInt(document.getElementById("mines_ones").className[4]);
+        this.game.mines = this.getMineCount();
     }
 
     clear(i) {
         const [x, y] = this.game.itoxy(i);
-        const elem = document.getElementById(y + 1 + "_" + (x + 1));
-        const e = new MouseEvent("mouseup", {
+        const elem = this.getCell(x, y);
+        if (this.clearMouseDown) {
+            const down = new MouseEvent("mousedown", {
+                bubbles: true,
+                clientX: elem.clientLeft,
+                clientY: elem.clientTop,
+                button: 1,
+            });
+            elem.dispatchEvent(down);
+        }
+        const up = new MouseEvent("mouseup", {
             bubbles: true,
             clientX: elem.clientLeft,
             clientY: elem.clientTop,
             button: 1,
         });
-        elem.dispatchEvent(e);
+        elem.dispatchEvent(up);
+        elem.click();
     }
 
     flag(i) {
         const [x, y] = this.game.itoxy(i);
-        const elem = document.getElementById(y + 1 + "_" + (x + 1));
+        const elem = this.getCell(x, y);
         const down = new MouseEvent("mousedown", {
             bubbles: true,
             clientX: elem.clientLeft,
@@ -950,6 +914,106 @@ class MinesweeperOnline extends Website {
         elem.dispatchEvent(up);
     }
 
+    showProbabilities(probabilities) {
+        for (let x = 0; x < this.game.width; x++) {
+            for (let y = 0; y < this.game.height; y++) {
+                const i = this.game.xytoi(x, y);
+                const elem = this.getCell(x, y);
+                if (i in probabilities) {
+                    elem.style.fontSize = "8px";
+                    elem.style.display = "flex";
+                    elem.style.justifyContent = "center";
+                    elem.style.alignItems = "center";
+                    elem.innerHTML = Math.round(probabilities[i] * 100);
+                } else {
+                    elem.innerHTML = "";
+                }
+            }
+        }
+    }
+
+    hideProbabilities() {
+        for (let x = 0; x < this.game.width; x++) {
+            for (let y = 0; y < this.game.height; y++) {
+                this.getCell(x, y).innerHTML = "";
+            }
+        }
+    }
+
+    inject() {
+        throw new Error("Not implemented");
+    }
+
+    getDims() {
+        throw new Error("Not implemented");
+    }
+
+    getCell() {
+        throw new Error("Not implemented");
+    }
+
+    getValue() {
+        throw new Error("Not implemented");
+    }
+
+    getMineCount() {
+        throw new Error("Not implemented");
+    }
+
+    getState() {
+        throw new Error("Not implemented");
+    }
+}
+
+class MinesweeperOnlineCom extends Website {
+    inject() {
+        const rightColumn = document.getElementsByClassName("right-column")[0];
+        rightColumn.insertBefore(div, rightColumn.firstChild);
+    }
+
+    getDims() {
+        let width = 0;
+        for (let i = 1; ; i++) {
+            const elem = document.getElementById("1_" + i);
+            if (!elem || elem.style.display === "none") {
+                break;
+            }
+            width++;
+        }
+        let height = 0;
+        for (let i = 1; ; i++) {
+            const elem = document.getElementById(i + "_1");
+            if (!elem || elem.style.display === "none") {
+                break;
+            }
+            height++;
+        }
+        return [width, height];
+    }
+
+    getCell(x, y) {
+        return document.getElementById(y + 1 + "_" + (x + 1));
+    }
+
+    getValue(elem) {
+        const name = elem.classList[1];
+        if (name.startsWith("open")) {
+            return parseInt(name[4]);
+        }
+        return name === "bombflagged" ? MINE : CLOSED;
+    }
+
+    getMineCount() {
+        return (
+            100 *
+                parseInt(
+                    document.getElementById("mines_hundreds").className[4]
+                ) +
+            10 * parseInt(document.getElementById("mines_tens").className[4]) +
+            parseInt(document.getElementById("mines_ones").className[4])
+        );
+    }
+
     getState() {
         if (document.getElementsByClassName("facesmile").length) {
             return IN_PROGRESS;
@@ -960,50 +1024,248 @@ class MinesweeperOnline extends Website {
         }
         throw new Error("Unknown state");
     }
+}
+
+class MinesweeperOnline extends Website {
+    constructor() {
+        super();
+        this.clearMouseDown = true;
+    }
+
+    load() {
+        return new Promise((resolve) => {
+            function check() {
+                const elem = document.getElementById("game");
+                if (elem) {
+                    resolve();
+                } else {
+                    setTimeout(check, 1000);
+                }
+            }
+            check();
+        });
+    }
+
+    inject() {
+        document.getElementsByClassName("main-column")[0].appendChild(div);
+    }
+
+    getDims() {
+        let width = 0;
+        for (let i = 0; ; i++) {
+            const elem = document.getElementById("cell_" + i + "_0");
+            if (!elem) {
+                break;
+            }
+            width++;
+        }
+        let height = 0;
+        for (let i = 0; ; i++) {
+            const elem = document.getElementById("cell_0_" + i);
+            if (!elem) {
+                break;
+            }
+            height++;
+        }
+        return [width, height];
+    }
+
+    getCell(x, y) {
+        return document.getElementById("cell_" + x + "_" + y);
+    }
+
+    getValue(elem) {
+        if (elem.classList.contains("hdd_opened")) {
+            return parseInt(
+                Array.from(elem.classList).find((name) =>
+                    name.startsWith("hdd_type")
+                )[8]
+            );
+        }
+        return elem.classList.contains("hdd_flag") ? MINE : CLOSED;
+    }
+
+    getMineCount() {
+        return [100, 10, 1].reduce(
+            (acc, elem) =>
+                acc +
+                parseInt(
+                    elem *
+                        Array.from(
+                            document.getElementById("top_area_mines_" + elem)
+                                .classList
+                        ).find((name) =>
+                            name.startsWith("hdd_top-area-num")
+                        )[16]
+                ),
+            0
+        );
+    }
+
+    getState() {
+        if (
+            document.getElementsByClassName("hdd_top-area-face-unpressed")
+                .length
+        ) {
+            return IN_PROGRESS;
+        } else if (
+            document.getElementsByClassName("hdd_top-area-face-lose").length
+        ) {
+            return LOST;
+        } else if (
+            document.getElementsByClassName("hdd_top-area-face-win").length
+        ) {
+            return WON;
+        }
+        throw new Error("Unknown state");
+    }
+
+    executeSolution(solution) {
+        const res = super.executeSolution(solution);
+        let cont = true;
+        for (let x = 0; cont && x < this.game.width; x++) {
+            for (let y = 0; y < this.game.height; y++) {
+                if (this.getCell(x, y).classList.contains("start")) {
+                    this.clear(this.game.xytoi(x, y));
+                    cont = false;
+                    break;
+                }
+            }
+        }
+        return res;
+    }
+}
+
+const alpha = [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+];
+
+class CardGamesIO extends Website {
+    constructor() {
+        super();
+        document.head.insertAdjacentHTML(
+            "beforeend",
+            "<style>" +
+                "td.closed { color: black; font-size: 8px !important; }" +
+                "#puzzle td { font-size: 0px; }" +
+                "td.nr { font-size: 16px !important; }</style>"
+        );
+    }
+
+    inject() {
+        document.getElementById("board").insertAdjacentElement("afterend", div);
+    }
+
+    getDims() {
+        switch (document.getElementsByClassName("pressed")[0].id) {
+            case "beginner":
+                return [8, 8];
+            case "intermediate":
+                return [16, 16];
+            case "expert":
+                return [31, 16];
+        }
+    }
+
+    getCell(x, y) {
+        return document.getElementById(alpha[y] + (x + 1));
+    }
+
+    getValue(elem) {
+        switch (elem.className) {
+            case "flag":
+                return MINE;
+            case "closed":
+                return CLOSED;
+            case "blank":
+                return 0;
+            default:
+                return parseInt(elem.className[5]);
+        }
+    }
+
+    getMineCount() {
+        return parseInt(document.getElementById("mines-left").innerHTML);
+    }
+
+    getState() {
+        if (document.getElementsByClassName("dead").length) {
+            return LOST;
+        } else if (document.getElementsByClassName("winner").length) {
+            return WON;
+        } else if (
+            document
+                .getElementsByClassName("face-top-player")[0]
+                .classList.contains("normal")
+        ) {
+            return IN_PROGRESS;
+        }
+        throw new Error("Unknown state");
+    }
 
     showProbabilities(probabilities) {
-        for (let x = 1; x <= this.game.width; x++) {
-            for (let y = 1; y <= this.game.height; y++) {
-                const i = this.game.xytoi(x - 1, y - 1);
-                const elem = document.getElementById(y + "_" + x);
+        for (let x = 0; x < this.game.width; x++) {
+            for (let y = 0; y < this.game.height; y++) {
+                const i = this.game.xytoi(x, y);
+                const elem = this.getCell(x, y);
                 if (i in probabilities) {
                     elem.innerHTML = Math.round(probabilities[i] * 100);
-                    elem.style.fontSize = "8px";
-                    elem.style.display = "flex";
-                    elem.style.justifyContent = "center";
-                    elem.style.alignItems = "center";
-                } else {
-                    elem.innerHTML = "";
                 }
             }
         }
     }
 
     hideProbabilities() {
-        for (let x = 1; x <= this.game.width; x++) {
-            for (let y = 1; y <= this.game.height; y++) {
-                const elem = document.getElementById(y + "_" + x);
-                elem.innerHTML = "";
+        for (let x = 0; x < this.game.width; x++) {
+            for (let y = 0; y < this.game.height; y++) {
+                if (this.game.get(this.game.xytoi(x, y)) === CLOSED) {
+                    this.getCell(x, y).innerHTML = "";
+                }
             }
         }
-    }
-
-    classToValue(name) {
-        if (name.startsWith("open")) {
-            return parseInt(name[4]);
-        }
-        return name === "bombflagged" ? MINE : CLOSED;
     }
 }
 
 const websiteFactory = () => {
-    let website;
-    return () => (website ??= new MinesweeperOnline());
+    let website = undefined;
+    return () => {
+        if (typeof website === "undefined") {
+            if (window.location.href === "https://minesweeperonline.com/") {
+                website = new MinesweeperOnlineCom();
+            } else if (
+                /^https:\/\/minesweeper\.online\/game\/\d+$/.test(
+                    window.location.href
+                )
+            ) {
+                website = new MinesweeperOnline();
+            } else if (
+                window.location.href === "https://cardgames.io/minesweeper/"
+            ) {
+                website = new CardGamesIO();
+            }
+            website.inject();
+        }
+        return website;
+    };
 };
-const website = websiteFactory();
 
-const rightColumn = document.getElementsByClassName("right-column")[0];
-const div = document.createElement("div");
+const website = websiteFactory()();
+
 const cheatDiv = document.createElement("div");
 const solveButton = document.createElement("button");
 const stepButton = document.createElement("button");
@@ -1015,9 +1277,10 @@ const probabilitiesLabel = document.createElement("label");
 const probabilitiesCheckbox = document.createElement("input");
 const guessCheckDiv = document.createElement("div");
 const guessCheckButton = document.createElement("button");
-const guessCheckP = document.createElement("p");
+const guessCheckSpan = document.createElement("span");
+const howHardDiv = document.createElement("div");
 const howHardButton = document.createElement("button");
-const howHardP = document.createElement("p");
+const howHardSpan = document.createElement("span");
 guessLabel.for = "guess";
 guessCheckbox.id = "guess";
 guessCheckbox.type = "checkbox";
@@ -1025,6 +1288,7 @@ guessCheckbox.checked = true;
 solveInterval.id = "solve-interval";
 solveInterval.type = "number";
 solveInterval.min = 10;
+solveInterval.value = 500;
 solveInterval.placeholder = "Solve Interval (ms)";
 probabilitiesLabel.for = "probabilities";
 probabilitiesCheckbox.id = "probabilities";
@@ -1034,15 +1298,16 @@ cheatDiv.appendChild(solveButton);
 cheatDiv.appendChild(stepButton);
 cheatDiv.appendChild(guessLabel);
 cheatDiv.appendChild(guessCheckbox);
-cheatDiv.appendChild(solveInterval);
+div.appendChild(solveInterval);
 div.appendChild(probabilitiesDiv);
 probabilitiesDiv.appendChild(probabilitiesLabel);
 probabilitiesDiv.appendChild(probabilitiesCheckbox);
 div.appendChild(guessCheckDiv);
 guessCheckDiv.appendChild(guessCheckButton);
-guessCheckDiv.appendChild(guessCheckP);
-guessCheckDiv.appendChild(howHardButton);
-guessCheckDiv.appendChild(howHardP);
+guessCheckDiv.appendChild(guessCheckSpan);
+div.appendChild(howHardDiv);
+howHardDiv.appendChild(howHardButton);
+howHardDiv.appendChild(howHardSpan);
 solveButton.innerHTML = "Solve";
 stepButton.innerHTML = "Step";
 guessLabel.innerHTML = "Guess?";
@@ -1050,13 +1315,13 @@ probabilitiesLabel.innerHTML = "Show probabilities";
 guessCheckButton.innerHTML = "Do I have to guess?";
 howHardButton.innerHTML = "How hard is this?";
 solveButton.addEventListener("click", () => {
-    website().update();
+    website.update();
     const timeout = parseInt(document.getElementById("solve-interval").value);
     const step = () => {
-        const solution = website().solver.solve(guessCheckbox.checked);
-        const cont = website().executeSolution(solution);
+        const solution = website.solver.solve(guessCheckbox.checked);
+        const cont = website.executeSolution(solution);
         if (cont) {
-            if (website().getState() === IN_PROGRESS) {
+            if (website.getState() === IN_PROGRESS) {
                 setTimeout(step, timeout);
             }
         }
@@ -1064,38 +1329,35 @@ solveButton.addEventListener("click", () => {
     step();
 });
 stepButton.addEventListener("click", () => {
-    website().update();
-    website().executeSolution(website().solver.solve(guessCheckbox.checked));
+    website.update();
+    website.executeSolution(website.solver.solve(guessCheckbox.checked));
 });
 probabilitiesCheckbox.addEventListener("click", () => {
-    website().update();
+    website.update();
     if (probabilitiesCheckbox.checked) {
-        website().showProbabilities(
-            website().solver.bruteSolve().probabilities
-        );
+        website.showProbabilities(website.solver.bruteSolve().probabilities);
     } else {
-        website().hideProbabilities();
+        website.hideProbabilities();
     }
 });
 guessCheckButton.addEventListener("click", () => {
-    website().update();
-    const solution = website().solver.solve(true);
-    guessCheckP.innerHTML = "guess" in solution ? "Yes!" : "No!";
+    website.update();
+    const solution = website.solver.solve(true);
+    guessCheckSpan.innerHTML = "guess" in solution ? "Yes!" : "No!";
 });
 howHardButton.addEventListener("click", () => {
-    website().update();
-    const solution = website().solver.solve();
+    website.update();
+    const solution = website.solver.solve();
     if (solution.mines?.size || solution.clears?.size) {
-        howHardP.innerHTML = "You can clear any space";
+        howHardSpan.innerHTML = "You can clear any space";
     } else if (solution.simple?.mines.size || solution.simple?.clears.size) {
-        howHardP.innerHTML = "You need basic logic to progress";
+        howHardSpan.innerHTML = "You need basic logic to progress";
     } else if (solution.linAlg?.mines.size || solution.linAlg?.clears.size) {
-        howHardP.innerHTML = "You need advanced logic to progress";
+        howHardSpan.innerHTML = "You need advanced logic to progress";
     } else if (solution.brute?.mines.size || solution.brute?.clears.size) {
-        howHardP.innerHTML =
+        howHardSpan.innerHTML =
             "You need brute force or advanced mine-counting to progress";
     } else {
-        howHardP.innerHTML = "You need to guess";
+        howHardSpan.innerHTML = "You need to guess";
     }
 });
-rightColumn.insertBefore(div, rightColumn.firstChild);

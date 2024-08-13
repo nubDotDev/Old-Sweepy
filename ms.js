@@ -1314,10 +1314,16 @@ guessLabel.innerHTML = "Guess?";
 probabilitiesLabel.innerHTML = "Show probabilities";
 guessCheckButton.innerHTML = "Do I have to guess?";
 howHardButton.innerHTML = "How hard is this?";
+const checkInProgress = (fn) => () => {
+    if (website.getState() !== IN_PROGRESS) {
+        return;
+    }
+    return fn();
+};
 solveButton.addEventListener("click", () => {
     website.update();
     const timeout = parseInt(document.getElementById("solve-interval").value);
-    const step = () => {
+    const step = checkInProgress(() => {
         const solution = website.solver.solve(guessCheckbox.checked);
         const cont = website.executeSolution(solution);
         if (cont) {
@@ -1325,39 +1331,59 @@ solveButton.addEventListener("click", () => {
                 setTimeout(step, timeout);
             }
         }
-    };
+    });
     step();
 });
-stepButton.addEventListener("click", () => {
-    website.update();
-    website.executeSolution(website.solver.solve(guessCheckbox.checked));
-});
-probabilitiesCheckbox.addEventListener("click", () => {
-    website.update();
-    if (probabilitiesCheckbox.checked) {
-        website.showProbabilities(website.solver.bruteSolve().probabilities);
-    } else {
-        website.hideProbabilities();
-    }
-});
-guessCheckButton.addEventListener("click", () => {
-    website.update();
-    const solution = website.solver.solve(true);
-    guessCheckSpan.innerHTML = "guess" in solution ? "Yes!" : "No!";
-});
-howHardButton.addEventListener("click", () => {
-    website.update();
-    const solution = website.solver.solve();
-    if (solution.mines?.size || solution.clears?.size) {
-        howHardSpan.innerHTML = "You can clear any space";
-    } else if (solution.simple?.mines.size || solution.simple?.clears.size) {
-        howHardSpan.innerHTML = "You need basic logic to progress";
-    } else if (solution.linAlg?.mines.size || solution.linAlg?.clears.size) {
-        howHardSpan.innerHTML = "You need advanced logic to progress";
-    } else if (solution.brute?.mines.size || solution.brute?.clears.size) {
-        howHardSpan.innerHTML =
-            "You need brute force or advanced mine-counting to progress";
-    } else {
-        howHardSpan.innerHTML = "You need to guess";
-    }
-});
+stepButton.addEventListener(
+    "click",
+    checkInProgress(() => {
+        website.update();
+        website.executeSolution(website.solver.solve(guessCheckbox.checked));
+    })
+);
+probabilitiesCheckbox.addEventListener(
+    "click",
+    checkInProgress(() => {
+        website.update();
+        if (probabilitiesCheckbox.checked) {
+            website.showProbabilities(
+                website.solver.bruteSolve().probabilities
+            );
+        } else {
+            website.hideProbabilities();
+        }
+    })
+);
+guessCheckButton.addEventListener(
+    "click",
+    checkInProgress(() => {
+        website.update();
+        const solution = website.solver.solve(true);
+        guessCheckSpan.innerHTML = "guess" in solution ? "Yes!" : "No!";
+    })
+);
+howHardButton.addEventListener(
+    "click",
+    checkInProgress(() => {
+        website.update();
+        const solution = website.solver.solve();
+        if (solution.mines?.size || solution.clears?.size) {
+            howHardSpan.innerHTML = "You can clear any space";
+        } else if (
+            solution.simple?.mines.size ||
+            solution.simple?.clears.size
+        ) {
+            howHardSpan.innerHTML = "You need basic logic to progress";
+        } else if (
+            solution.linAlg?.mines.size ||
+            solution.linAlg?.clears.size
+        ) {
+            howHardSpan.innerHTML = "You need advanced logic to progress";
+        } else if (solution.brute?.mines.size || solution.brute?.clears.size) {
+            howHardSpan.innerHTML =
+                "You need brute force or advanced mine-counting to progress";
+        } else {
+            howHardSpan.innerHTML = "You need to guess";
+        }
+    })
+);

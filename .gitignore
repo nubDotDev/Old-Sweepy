@@ -1,6 +1,7 @@
 *.txt
-eslint.config.mjs
-package-lock.json
-package.json
-node_modules/
+*.zip
 .vscode/
+eslint.config.mjs
+package.json
+package-lock.json
+node_modules/

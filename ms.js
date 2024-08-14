@@ -1323,16 +1323,29 @@ const checkInProgress = (fn) => () => {
 solveButton.addEventListener("click", () => {
     website.update();
     const timeout = parseInt(document.getElementById("solve-interval").value);
-    const step = checkInProgress(() => {
-        const solution = website.solver.solve(guessCheckbox.checked);
-        const cont = website.executeSolution(solution);
-        if (cont) {
-            if (website.getState() === IN_PROGRESS) {
-                setTimeout(step, timeout);
+    website.solving = !website.solving;
+    if (website.solving) {
+        solveButton.innerHTML = "Stop";
+        const step = checkInProgress(() => {
+            if (website.solving) {
+                if (
+                    website.executeSolution(
+                        website.solver.solve(guessCheckbox.checked)
+                    )
+                ) {
+                    if (website.getState() === IN_PROGRESS) {
+                        setTimeout(step, timeout);
+                    }
+                } else {
+                    website.solving = false;
+                    solveButton.innerHTML = "Solve";
+                }
             }
-        }
-    });
-    step();
+        });
+        step();
+    } else {
+        solveButton.innerHTML = "Solve";
+    }
 });
 stepButton.addEventListener(
     "click",

@@ -222,16 +222,11 @@ class Solver {
      * @returns {{ mines: Set<number>, clears: Set<number> }}
      */
     solve(guess = false) {
-        // Start in the middle
+        // Start in the corner
         if (this.game.getClosedCells().length === this.game.n) {
             return {
                 mines: new Set(),
-                clears: new Set([
-                    this.game.xytoi(
-                        Math.floor(this.game.width / 2),
-                        Math.floor(this.game.height / 2)
-                    ),
-                ]),
+                clears: new Set([0]),
             };
         }
 
@@ -825,11 +820,13 @@ class Website {
     constructor() {
         this.game = new Game();
         this.solver = new Solver(this.game);
-        this.load().then(() => this.update());
-    }
-
-    async load() {
-        return Promise.resolve();
+        this.confirm().then((consented) => {
+            this.consented = consented;
+            this.load().then(() => {
+                this.inject();
+                this.update();
+            });
+        });
     }
 
     executeSolution(solution) {
@@ -915,18 +912,15 @@ class Website {
     }
 
     showProbabilities(probabilities) {
+        if (!this.consented && this.getState() !== LOST) {
+            return;
+        }
         for (let x = 0; x < this.game.width; x++) {
             for (let y = 0; y < this.game.height; y++) {
                 const i = this.game.xytoi(x, y);
                 const elem = this.getCell(x, y);
                 if (i in probabilities) {
-                    elem.style.fontSize = "8px";
-                    elem.style.display = "flex";
-                    elem.style.justifyContent = "center";
-                    elem.style.alignItems = "center";
                     elem.innerHTML = Math.round(probabilities[i] * 100);
-                } else {
-                    elem.innerHTML = "";
                 }
             }
         }
@@ -938,6 +932,18 @@ class Website {
                 this.getCell(x, y).innerHTML = "";
             }
         }
+    }
+
+    getDiv() {
+        return this.consented ? div : probabilitiesDiv;
+    }
+
+    load() {
+        return Promise.resolve();
+    }
+
+    async confirm() {
+        return true;
     }
 
     inject() {
@@ -966,9 +972,42 @@ class Website {
 }
 
 class MinesweeperOnlineCom extends Website {
+    async confirm() {
+        // eslint-disable-next-line no-undef
+        const consented = await chrome.storage.sync.get("minesweeperOnlineCom");
+        if (consented.minesweeperOnlineCom) {
+            return true;
+        }
+        const answer = prompt(
+            "IMPORTANT: Old Sweepy can be used to cheat, resulting in an IP " +
+                "ban from the minesweeperonline.com leaderboards.\n\nPress OK " +
+                "to continue with cheats. Type 'I understand' to not show this " +
+                "dialogue again.\n\nPress cancel to limit Old Sweepy to non-" +
+                "cheating abilities (i.e., post-loss probabilities)."
+        );
+        if (answer === "I understand") {
+            // eslint-disable-next-line no-undef
+            chrome.storage.sync.set({ minesweeperOnlineCom: true });
+        } else if (answer === null) {
+            return false;
+        }
+        return true;
+    }
+
     inject() {
+        document.head.insertAdjacentHTML(
+            "beforeend",
+            "<style>" +
+                ".square { display: flex;" +
+                "justify-content: center; align-items: center; }" +
+                ".bombmisflagged, .bombrevealed, .bombdeath" +
+                "{ font-size: 8px !important; color: white; }" +
+                ".blank" +
+                "{ font-size: 8px !important; }" +
+                "</style>"
+        );
         const rightColumn = document.getElementsByClassName("right-column")[0];
-        rightColumn.insertBefore(div, rightColumn.firstChild);
+        rightColumn.insertBefore(this.getDiv(), rightColumn.firstChild);
     }
 
     getDims() {
@@ -1046,8 +1085,27 @@ class MinesweeperOnline extends Website {
         });
     }
 
+    async confirm() {
+        return false;
+    }
+
     inject() {
-        document.getElementsByClassName("main-column")[0].appendChild(div);
+        document
+            .getElementsByClassName("main-column")[0]
+            .appendChild(this.getDiv());
+        this.prefix =
+            document.getElementsByClassName("fa-moon-o").length === 6
+                ? "hdd"
+                : "hd";
+        document.head.insertAdjacentHTML(
+            "beforeend",
+            "<style>" +
+                ".cell { font-size: 0px; display: flex; justify-content: center; align-items: center; }" +
+                `.${this.prefix}_type10, .${this.prefix}_type11, .${this.prefix}_type12` +
+                "{ font-size: 12px !important; color: yellow; }" +
+                `.${this.prefix}_closed { font-size: 12px !important; }` +
+                "</style>"
+        );
     }
 
     getDims() {
@@ -1075,14 +1133,15 @@ class MinesweeperOnline extends Website {
     }
 
     getValue(elem) {
-        if (elem.classList.contains("hdd_opened")) {
-            return parseInt(
-                Array.from(elem.classList).find((name) =>
-                    name.startsWith("hdd_type")
-                )[8]
+        if (elem.classList.contains(this.prefix + "_opened")) {
+            const type = parseInt(
+                Array.from(elem.classList)
+                    .find((name) => name.startsWith(this.prefix + "_type"))
+                    .substring(5 + this.prefix.length)
             );
+            return type < 9 ? type : CLOSED;
         }
-        return elem.classList.contains("hdd_flag") ? MINE : CLOSED;
+        return elem.classList.contains(this.prefix + "_flag") ? MINE : CLOSED;
     }
 
     getMineCount() {
@@ -1094,9 +1153,11 @@ class MinesweeperOnline extends Website {
                         Array.from(
                             document.getElementById("top_area_mines_" + elem)
                                 .classList
-                        ).find((name) =>
-                            name.startsWith("hdd_top-area-num")
-                        )[16]
+                        )
+                            .find((name) =>
+                                name.startsWith(this.prefix + "_top-area-num")
+                            )
+                            .slice(-1)
                 ),
             0
         );
@@ -1104,16 +1165,19 @@ class MinesweeperOnline extends Website {
 
     getState() {
         if (
-            document.getElementsByClassName("hdd_top-area-face-unpressed")
-                .length
+            document.getElementsByClassName(
+                this.prefix + "_top-area-face-unpressed"
+            ).length
         ) {
             return IN_PROGRESS;
         } else if (
-            document.getElementsByClassName("hdd_top-area-face-lose").length
+            document.getElementsByClassName(this.prefix + "_top-area-face-lose")
+                .length
         ) {
             return LOST;
         } else if (
-            document.getElementsByClassName("hdd_top-area-face-win").length
+            document.getElementsByClassName(this.prefix + "_top-area-face-win")
+                .length
         ) {
             return WON;
         }
@@ -1158,17 +1222,23 @@ const alpha = [
 class CardGamesIO extends Website {
     constructor() {
         super();
-        document.head.insertAdjacentHTML(
-            "beforeend",
-            "<style>" +
-                "td.closed { color: black; font-size: 8px !important; }" +
-                "#puzzle td { font-size: 0px; }" +
-                "td.nr { font-size: 16px !important; }</style>"
-        );
+        this.keepProbabilities = true;
     }
 
     inject() {
-        document.getElementById("board").insertAdjacentElement("afterend", div);
+        document.head.insertAdjacentHTML(
+            "beforeend",
+            "<style>" +
+                ".closed { color: black; font-size: 8px !important; }" +
+                ".explosion, .falsemine, .mine, .questionmark" +
+                "{ color: white; font-size: 8px !important; }" +
+                "#puzzle td { font-size: 0px; }" +
+                ".nr { font-size: 16px !important; }" +
+                "</style>"
+        );
+        document
+            .getElementById("board")
+            .insertAdjacentElement("afterend", this.getDiv());
     }
 
     getDims() {
@@ -1188,12 +1258,16 @@ class CardGamesIO extends Website {
 
     getValue(elem) {
         switch (elem.className) {
+            case "blank":
+                return 0;
             case "flag":
                 return MINE;
             case "closed":
+            case "explosion":
+            case "falsemine":
+            case "mine":
+            case "questionmark":
                 return CLOSED;
-            case "blank":
-                return 0;
             default:
                 return parseInt(elem.className[5]);
         }
@@ -1218,18 +1292,6 @@ class CardGamesIO extends Website {
         throw new Error("Unknown state");
     }
 
-    showProbabilities(probabilities) {
-        for (let x = 0; x < this.game.width; x++) {
-            for (let y = 0; y < this.game.height; y++) {
-                const i = this.game.xytoi(x, y);
-                const elem = this.getCell(x, y);
-                if (i in probabilities) {
-                    elem.innerHTML = Math.round(probabilities[i] * 100);
-                }
-            }
-        }
-    }
-
     hideProbabilities() {
         for (let x = 0; x < this.game.width; x++) {
             for (let y = 0; y < this.game.height; y++) {
@@ -1241,30 +1303,19 @@ class CardGamesIO extends Website {
     }
 }
 
-const websiteFactory = () => {
-    let website = undefined;
-    return () => {
-        if (typeof website === "undefined") {
-            if (window.location.href === "https://minesweeperonline.com/") {
-                website = new MinesweeperOnlineCom();
-            } else if (
-                /^https:\/\/minesweeper\.online\/game\/\d+$/.test(
-                    window.location.href
-                )
-            ) {
-                website = new MinesweeperOnline();
-            } else if (
-                window.location.href === "https://cardgames.io/minesweeper/"
-            ) {
-                website = new CardGamesIO();
-            }
-            website.inject();
-        }
-        return website;
-    };
-};
+function getWebsite() {
+    if (window.location.href === "https://minesweeperonline.com/") {
+        return new MinesweeperOnlineCom();
+    } else if (
+        /^https:\/\/minesweeper\.online\/game\/\d+$/.test(window.location.href)
+    ) {
+        return new MinesweeperOnline();
+    } else if (window.location.href === "https://cardgames.io/minesweeper/") {
+        return new CardGamesIO();
+    }
+}
 
-const website = websiteFactory()();
+const website = getWebsite();
 
 const cheatDiv = document.createElement("div");
 const solveButton = document.createElement("button");
@@ -1326,22 +1377,27 @@ solveButton.addEventListener("click", () => {
     website.solving = !website.solving;
     if (website.solving) {
         solveButton.innerHTML = "Stop";
-        const step = checkInProgress(() => {
+        const step = () => {
             if (website.solving) {
-                if (
-                    website.executeSolution(
-                        website.solver.solve(guessCheckbox.checked)
-                    )
-                ) {
-                    if (website.getState() === IN_PROGRESS) {
-                        setTimeout(step, timeout);
+                if (website.getState() === IN_PROGRESS) {
+                    if (
+                        website.executeSolution(
+                            website.solver.solve(guessCheckbox.checked)
+                        )
+                    ) {
+                        if (website.getState() === IN_PROGRESS) {
+                            setTimeout(step, timeout);
+                        } else {
+                            website.solving = false;
+                            solveButton.innerHTML = "Solve";
+                        }
                     }
                 } else {
                     website.solving = false;
                     solveButton.innerHTML = "Solve";
                 }
             }
-        });
+        };
         step();
     } else {
         solveButton.innerHTML = "Solve";
@@ -1354,19 +1410,14 @@ stepButton.addEventListener(
         website.executeSolution(website.solver.solve(guessCheckbox.checked));
     })
 );
-probabilitiesCheckbox.addEventListener(
-    "click",
-    checkInProgress(() => {
-        website.update();
-        if (probabilitiesCheckbox.checked) {
-            website.showProbabilities(
-                website.solver.bruteSolve().probabilities
-            );
-        } else {
-            website.hideProbabilities();
-        }
-    })
-);
+probabilitiesCheckbox.addEventListener("click", () => {
+    website.update();
+    if (probabilitiesCheckbox.checked) {
+        website.showProbabilities(website.solver.bruteSolve().probabilities);
+    } else {
+        website.hideProbabilities();
+    }
+});
 guessCheckButton.addEventListener(
     "click",
     checkInProgress(() => {

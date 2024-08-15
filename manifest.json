@@ -1,14 +1,15 @@
 {
     "name": "Old Sweepy",
     "description": "Minesweeper AI",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "manifest_version": 3,
     "content_scripts": [
         {
             "matches": [
                 "*://*.minesweeperonline.com/*",
                 "*://*.minesweeper.online/game/*",
-                "*://*.cardgames.io/minesweeper/"
+                "*://*.cardgames.io/minesweeper/*",
+                "*://*.minesweeper.one/*"
             ],
             "js": ["ms.js"]
         }

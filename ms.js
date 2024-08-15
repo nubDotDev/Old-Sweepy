@@ -1315,7 +1315,9 @@ function getWebsite() {
     }
 }
 
-const website = getWebsite();
+let website;
+
+window.addEventListener("load", () => (website = getWebsite()));
 
 const cheatDiv = document.createElement("div");
 const solveButton = document.createElement("button");

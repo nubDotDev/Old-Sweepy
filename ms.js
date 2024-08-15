@@ -1121,26 +1121,6 @@ class MinesweeperOnline extends Website {
         );
     }
 
-    // getDims() {
-    //     let width = 0;
-    //     for (let i = 0; ; i++) {
-    //         const elem = document.getElementById("cell_" + i + "_0");
-    //         if (!elem) {
-    //             break;
-    //         }
-    //         width++;
-    //     }
-    //     let height = 0;
-    //     for (let i = 0; ; i++) {
-    //         const elem = document.getElementById("cell_0_" + i);
-    //         if (!elem) {
-    //             break;
-    //         }
-    //         height++;
-    //     }
-    //     return [width, height];
-    // }
-
     getCell(x, y) {
         return document.getElementById("cell_" + x + "_" + y);
     }

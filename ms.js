@@ -815,6 +815,7 @@ class DisjointSet {
 }
 
 const div = document.createElement("div");
+const probabilitiesDiv = document.createElement("div");
 
 class Website {
     constructor() {
@@ -1025,26 +1026,6 @@ class MinesweeperOnlineCom extends Website {
         const rightColumn = document.getElementsByClassName("right-column")[0];
         rightColumn.insertBefore(this.getDiv(), rightColumn.firstChild);
     }
-
-    // getDims() {
-    //     let width = 0;
-    //     for (let i = 1; ; i++) {
-    //         const elem = document.getElementById("1_" + i);
-    //         if (!elem || elem.style.display === "none") {
-    //             break;
-    //         }
-    //         width++;
-    //     }
-    //     let height = 0;
-    //     for (let i = 1; ; i++) {
-    //         const elem = document.getElementById(i + "_1");
-    //         if (!elem || elem.style.display === "none") {
-    //             break;
-    //         }
-    //         height++;
-    //     }
-    //     return [width, height];
-    // }
 
     getCell(x, y) {
         return document.getElementById(y + 1 + "_" + (x + 1));
@@ -1513,7 +1494,6 @@ const stepButton = document.createElement("button");
 const guessLabel = document.createElement("label");
 const guessCheckbox = document.createElement("input");
 const solveInterval = document.createElement("input");
-const probabilitiesDiv = document.createElement("div");
 const probabilitiesLabel = document.createElement("label");
 const probabilitiesCheckbox = document.createElement("input");
 const guessCheckDiv = document.createElement("div");

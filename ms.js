@@ -684,7 +684,8 @@ class Solver {
                 const prod = BigInt(
                     curr.reduce((acc, [, count]) => acc * count, 1)
                 );
-                const toAdd = (binomInactive(this.game.mines - sum) || 1n) * prod;
+                const toAdd =
+                    (binomInactive(this.game.mines - sum) || 1n) * prod;
                 totalCount += toAdd;
 
                 curr.forEach(([size, count], idx) => {
@@ -695,15 +696,11 @@ class Solver {
                             continue;
                         }
                         if (cell in cellCounts) {
-                            cellCounts[cell] += bigIntDivide(
-                                toAdd * BigInt(counts[size]),
-                                BigInt(count)
-                            );
+                            cellCounts[cell] +=
+                                (toAdd * BigInt(counts[size])) / BigInt(count);
                         } else {
-                            cellCounts[cell] = bigIntDivide(
-                                toAdd * BigInt(counts[size]),
-                                BigInt(count)
-                            );
+                            cellCounts[cell] =
+                                (toAdd * BigInt(counts[size])) / BigInt(count);
                         }
                     }
                 });

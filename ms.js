@@ -684,7 +684,7 @@ class Solver {
                 const prod = BigInt(
                     curr.reduce((acc, [, count]) => acc * count, 1)
                 );
-                const toAdd = binomInactive(this.game.mines - sum) * prod;
+                const toAdd = (binomInactive(this.game.mines - sum) || 1n) * prod;
                 totalCount += toAdd;
 
                 curr.forEach(([size, count], idx) => {
@@ -728,15 +728,6 @@ class Solver {
 
         generateCombinations.call(this, [], 0);
 
-        const inactiveProb = bigIntDivide(
-            Object.entries(counts).reduce(
-                (acc, [size, count]) =>
-                    acc + count * BigInt(this.game.mines - size),
-                0n
-            ),
-            BigInt(closedCells.length - activeCells.length) * totalCount
-        );
-
         for (const [i, count] of Object.entries(cellCounts)) {
             setProbability.call(
                 this,
@@ -744,11 +735,23 @@ class Solver {
                 bigIntDivide(BigInt(count), totalCount)
             );
         }
-        closedCells.forEach((i) => {
-            if (!(i in probabilities)) {
-                setProbability.call(this, i, inactiveProb);
-            }
-        });
+
+        if (closedCells.length - activeCells.length !== 0) {
+            const inactiveProb = bigIntDivide(
+                Object.entries(counts).reduce(
+                    (acc, [size, count]) =>
+                        acc + count * BigInt(this.game.mines - size),
+                    0n
+                ),
+                BigInt(closedCells.length - activeCells.length) * totalCount
+            );
+            closedCells.forEach((i) => {
+                if (!(i in probabilities)) {
+                    setProbability.call(this, i, inactiveProb);
+                }
+            });
+        }
+
         mines.forEach((i) => {
             if (!(i in probabilities)) {
                 setProbability.call(this, i, 1);

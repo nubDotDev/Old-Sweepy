@@ -5,3 +5,11 @@ eslint.config.mjs
 package.json
 package-lock.json
 node_modules/
+
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.pdf
+*.gz

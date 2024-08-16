@@ -1558,15 +1558,12 @@ solveButton.addEventListener("click", () => {
                     ) {
                         if (website.getState() === IN_PROGRESS) {
                             setTimeout(step, timeout);
-                        } else {
-                            website.solving = false;
-                            solveButton.innerHTML = "Solve";
+                            return;
                         }
                     }
-                } else {
-                    website.solving = false;
-                    solveButton.innerHTML = "Solve";
                 }
+                website.solving = false;
+                solveButton.innerHTML = "Solve";
             }
         };
         step();

@@ -127,7 +127,7 @@ class Game {
 
     countNeighboringMines(i) {
         let neighboringMines = 0;
-        for (let i1 of this.getNeighbors(i)) {
+        for (const i1 of this.getNeighbors(i)) {
             if (this.get(i1) === MINE) {
                 neighboringMines++;
             }
@@ -137,7 +137,7 @@ class Game {
 
     getClosedNeighbors(i) {
         const closedNeighbors = [];
-        for (let i1 of this.getNeighbors(i)) {
+        for (const i1 of this.getNeighbors(i)) {
             if (this.get(i1) === CLOSED) {
                 closedNeighbors.push(i1);
             }
@@ -149,7 +149,7 @@ class Game {
         if (this.get(i) !== CLOSED) {
             return false;
         }
-        for (let i1 of this.getNeighbors(i)) {
+        for (const i1 of this.getNeighbors(i)) {
             if (this.get(i1) >= 0) {
                 return true;
             }
@@ -159,7 +159,7 @@ class Game {
 
     getActiveNeighbors(i) {
         const activeNeighbors = [];
-        for (let i1 of this.getNeighbors(i)) {
+        for (const i1 of this.getNeighbors(i)) {
             if (this.isActive(i1)) {
                 activeNeighbors.push(i1);
             }
@@ -541,9 +541,11 @@ class Solver {
         const { activeCells } = this.game.getActiveAndFrontierCells();
         const closedCells = this.game.getClosedCells();
 
+        // These do not factor in the binomial coefficients
+        // [{size: count} for each group]
         const groupCounts = [];
-        const groupCountCounts = [];
-        const groupTotalCombos = [];
+        // [{cell: {size: count} for each cell in group} for each group]
+        const groupCellCounts = [];
 
         const binomInactive = binomFactory(
             closedCells.length - activeCells.length
@@ -553,9 +555,10 @@ class Solver {
             let a1 = as[group];
             let b1 = bs[group];
 
+            // {size: count}
             const counts = {};
-            const countCounts = {};
-            let totalCombos = 0n;
+            // {cell: {size: count}}
+            const cellCounts = {};
 
             const stack = [0];
             let newMines = 0;
@@ -605,27 +608,26 @@ class Solver {
                 if (valid) {
                     if (stack.length >= n) {
                         // Combinatorics
-                        const toAdd =
-                            binomInactive(this.game.mines - newMines) || 1n;
 
                         for (let i = 0; i < stack.length; i++) {
                             if (stack[i] === 0) {
                                 continue;
                             }
                             const i1 = sigma[i];
-                            if (i1 in counts) {
-                                counts[i1] += toAdd;
+                            if (!(i1 in cellCounts)) {
+                                cellCounts[i1] = {};
+                            }
+                            if (newMines in cellCounts[i1]) {
+                                cellCounts[i1][newMines]++;
                             } else {
-                                counts[i1] = toAdd;
+                                cellCounts[i1][newMines] = 1;
                             }
                         }
 
-                        totalCombos += toAdd;
-
-                        if (newMines in countCounts) {
-                            countCounts[newMines]++;
+                        if (newMines in counts) {
+                            counts[newMines]++;
                         } else {
-                            countCounts[newMines] = 1;
+                            counts[newMines] = 1;
                         }
 
                         backtrack();
@@ -646,8 +648,7 @@ class Solver {
             }
 
             groupCounts.push(counts);
-            groupCountCounts.push(countCounts);
-            groupTotalCombos.push(totalCombos);
+            groupCellCounts.push(cellCounts);
         }
 
         function setProbability(i, probability) {
@@ -661,11 +662,16 @@ class Solver {
             }
         }
 
-        const countCounts = {};
+        // These factor in the binomial coefficients
+        // {size: count}
+        const counts = {};
+        // {cell: count}
+        const cellCounts = {};
+        let totalCount = 0n;
 
         function generateCombinations(curr, i) {
-            if (i === groupCountCounts.length) {
-                const sum = curr.reduce((acc, [key]) => acc + key, 0);
+            if (i === groupCounts.length) {
+                const sum = curr.reduce((acc, [size]) => acc + size, 0);
 
                 if (
                     this.game.mines - sum >
@@ -675,19 +681,46 @@ class Solver {
                     return;
                 }
 
-                const prod = curr.reduce((acc, [, value]) => acc * value, 1);
-                if (sum in countCounts) {
-                    countCounts[sum] += prod;
+                const prod = BigInt(
+                    curr.reduce((acc, [, count]) => acc * count, 1)
+                );
+                const toAdd = binomInactive(this.game.mines - sum) * prod;
+                totalCount += toAdd;
+
+                curr.forEach(([size, count], idx) => {
+                    for (const [cell, counts] of Object.entries(
+                        groupCellCounts[idx]
+                    )) {
+                        if (!(size in counts)) {
+                            continue;
+                        }
+                        if (cell in cellCounts) {
+                            cellCounts[cell] += bigIntDivide(
+                                toAdd * BigInt(counts[size]),
+                                BigInt(count)
+                            );
+                        } else {
+                            cellCounts[cell] = bigIntDivide(
+                                toAdd * BigInt(counts[size]),
+                                BigInt(count)
+                            );
+                        }
+                    }
+                });
+
+                if (sum in counts) {
+                    counts[sum] += toAdd;
                 } else {
-                    countCounts[sum] = prod;
+                    counts[sum] = toAdd;
                 }
+
                 return;
             }
 
-            for (const [key, value] of Object.entries(groupCountCounts[i])) {
+            for (const [size, count] of Object.entries(groupCounts[i])) {
                 generateCombinations.call(
                     this,
-                    [...curr, [parseInt(key), value]],
+                    [...curr, [parseInt(size), count]],
                     i + 1
                 );
             }
@@ -695,32 +728,37 @@ class Solver {
 
         generateCombinations.call(this, [], 0);
 
-        let inactiveProb = 0;
-        let total = 0;
-        for (let count in countCounts) {
-            total += countCounts[count];
-            inactiveProb +=
-                (countCounts[count] * (this.game.mines - count)) /
-                (closedCells.length - activeCells.length);
-        }
-        inactiveProb /= total;
+        const inactiveProb = bigIntDivide(
+            Object.entries(counts).reduce(
+                (acc, [size, count]) =>
+                    acc + count * BigInt(this.game.mines - size),
+                0n
+            ),
+            BigInt(closedCells.length - activeCells.length) * totalCount
+        );
 
-        groupCounts.forEach((counts, group) => {
-            for (let i in counts) {
-                setProbability.call(
-                    this,
-                    i,
-                    bigIntDivide(counts[i] ?? 0n, groupTotalCombos[group])
-                );
-            }
-        });
+        for (const [i, count] of Object.entries(cellCounts)) {
+            setProbability.call(
+                this,
+                i,
+                bigIntDivide(BigInt(count), totalCount)
+            );
+        }
         closedCells.forEach((i) => {
             if (!(i in probabilities)) {
                 setProbability.call(this, i, inactiveProb);
             }
         });
-        mines.forEach((i) => setProbability.call(this, i, 1));
-        clears.forEach((i) => setProbability.call(this, i, 0));
+        mines.forEach((i) => {
+            if (!(i in probabilities)) {
+                setProbability.call(this, i, 1);
+            }
+        });
+        clears.forEach((i) => {
+            if (!(i in probabilities)) {
+                setProbability.call(this, i, 0);
+            }
+        });
 
         return { mines, clears, probabilities };
     }
@@ -773,7 +811,7 @@ class Solver {
         const m = sigma.length;
         const a = [];
         const b = [];
-        for (let i of frontierCells) {
+        for (const i of frontierCells) {
             const val = this.game.get(i);
             if (val <= 0) {
                 continue;
@@ -783,7 +821,7 @@ class Solver {
                 continue;
             }
             const eq = Array(m).fill(0);
-            for (let i1 of this.game.getClosedNeighbors(i)) {
+            for (const i1 of this.game.getClosedNeighbors(i)) {
                 eq[tau[i1]] = 1;
             }
             b.push(val - this.game.countNeighboringMines(i));

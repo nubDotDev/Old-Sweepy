@@ -41,7 +41,7 @@ function binomFactory(n) {
         }
         const lo = k > n / 2 ? k : n - k;
         let res = 1n;
-        for (let i = BigInt(lo); i <= n; i++) {
+        for (let i = BigInt(lo + 1); i <= n; i++) {
             res *= i;
         }
         res /= factorial(n - lo);
@@ -249,7 +249,7 @@ class Solver {
             linAlg.tau
         );
         solution.brute = brute;
-        if (!guess || linAlg.mines.size || linAlg.clears.size) {
+        if (!guess || brute.mines.size || brute.clears.size) {
             return solution;
         }
         solution.guess = this.guess(brute.probabilities);
@@ -724,6 +724,7 @@ class Solver {
         }
 
         generateCombinations.call(this, [], 0);
+        const startMines = this.game.mines;
 
         for (const [i, count] of Object.entries(cellCounts)) {
             setProbability.call(
@@ -737,7 +738,7 @@ class Solver {
             const inactiveProb = bigIntDivide(
                 Object.entries(counts).reduce(
                     (acc, [size, count]) =>
-                        acc + count * BigInt(this.game.mines - size),
+                        acc + count * BigInt(startMines - size),
                     0n
                 ),
                 BigInt(closedCells.length - activeCells.length) * totalCount

@@ -1535,20 +1535,19 @@ solveButton.addEventListener("click", () => {
   if (website.solving) {
     solveButton.innerHTML = "Stop";
     const step = () => {
-      if (website.solving) {
-        if (website.getState() === IN_PROGRESS) {
-          if (
-            website.executeSolution(website.solver.solve(guessCheckbox.checked))
-          ) {
-            if (website.getState() === IN_PROGRESS) {
-              setTimeout(step, timeout);
-              return;
-            }
-          }
-        }
-        website.solving = false;
-        solveButton.innerHTML = "Solve";
+      if (!website.solving) {
+        return;
       }
+      if (
+        website.getState() === IN_PROGRESS &&
+        website.executeSolution(website.solver.solve(guessCheckbox.checked)) &&
+        website.getState() === IN_PROGRESS
+      ) {
+        setTimeout(step, timeout);
+        return;
+      }
+      website.solving = false;
+      solveButton.innerHTML = "Solve";
     };
     step();
   } else {

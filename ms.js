@@ -697,7 +697,7 @@ class Solver {
     const startMines = this.game.mines;
 
     for (const [i, count] of Object.entries(cellCounts)) {
-      setProbability(i, bigIntDivide(BigInt(count), totalCount));
+      setProbability(i, bigIntDivide(count, totalCount));
     }
 
     if (closedCells.length - activeCells.length !== 0) {

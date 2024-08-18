@@ -238,7 +238,7 @@ class Solver {
     if (linAlg.mines.size || linAlg.clears.size) {
       return solution;
     }
-    const brute = this.bruteSolve(linAlg.a, linAlg.b, linAlg.sigma, linAlg.tau);
+    const brute = this.bruteSolve(false);
     solution.brute = brute;
     if (!guess || brute.mines.size || brute.clears.size) {
       return solution;
@@ -462,12 +462,12 @@ class Solver {
    *
    * @returns {{ mines: Set<number>, clears: Set<number>, probabilities: number[] }}
    */
-  bruteSolve(linAlg = undefined) {
+  bruteSolve(linAlg = true) {
     const mines = new Set();
     const clears = new Set();
     const probabilities = {};
 
-    if (typeof linAlg === "undefined") {
+    if (linAlg) {
       const linAlg = this.linAlgSolve();
       linAlg.mines.forEach((i) => mines.add(i));
       linAlg.clears.forEach((i) => clears.add(i));
